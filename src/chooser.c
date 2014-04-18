@@ -8,11 +8,12 @@
  *
  */
  #include "simple_cmds.h"
+ #include "call_prog.h"
  #include <string.h>
  #include <stdio.h>
  #include <stdlib.h>
 
-int choose_command(char** args) {
+int choose_command(char** args, int wait) {
 	/*execute clear*/
 	if (!strcmp(args[0], "clr")){
 		clear();
@@ -34,7 +35,7 @@ int choose_command(char** args) {
 	}
 
 	else if (!strcmp(args[0], "quit")){
-		exit(0);
+		return -1; //flag to break the input loop
 	}
 
 	else if (!strcmp(args[0], "cd")) {
@@ -49,7 +50,7 @@ int choose_command(char** args) {
 
 	/*if none of the above, send to system */
 	else {
-		return -1; //send back to loop so it will continue working after process is forked
+		call(args, wait);
 	}
 	return 0;
 }

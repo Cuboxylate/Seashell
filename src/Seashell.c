@@ -15,15 +15,17 @@
 #include <errno.h>
 #include "chooser.h"
 #include "definers.h"
-
-void send_to_system(char**);
-void syserr(char* );     // error report and abort routine
+#include "call_prog.h"
 
 int main(int argc, char const *argv[]){
 	char input[MAXLEN];							//Buffer for input
-	char * args[MAXARGS];                     // pointers to arg strings
+	char ** args;  // pointers to arg strings
     char ** arg;                               // working pointer through args
     char prompt[MAXLEN];                    // shell prompt
+
+    /* Allocate space for the inputted argument array */
+    args = (char**) malloc(sizeof(char*) * MAXARGS);
+
 
  	/* keep reading input until "quit" command or eof of redirected input */
 	while (!feof(stdin)) {
@@ -31,54 +33,46 @@ int main(int argc, char const *argv[]){
 		getcwd(prompt, MAXLEN);
 		strcat(prompt, " ==> ");
 		fputs (prompt, stdout);
+		int num_args;
+		int wait;	//Int representation of bool, of whether a parent process should wait for child to finish.
+					// Should be 0 is last arg is "&"
 
 		/*save a line, and if it isn't null: */
 		if (fgets(input, MAXLEN, stdin)) {
 			arg = args; //point to first space in args
             *arg++ = strtok(input,SEPARATORS);   // first string tokenised and saved
+            num_args = 1;
+            /* If the first argument isn't just null, indicating the user pressed enter */
+            if (args[0]) { 
+		        /* loops until end of input, saving each argument in args and keeping track of num_args */
+		        while (*arg++ = strtok(NULL,SEPARATORS)) { 
+		        	num_args++; 
+		        }
 
-            /* loops until end of input, saving each argument in args */
-            while ((*arg++ = strtok(NULL,SEPARATORS)));
-		}
-		/* If the command isn't null: */
-		if (args[0]) {
-			int flag = choose_command(args);
-			if (flag == -1) {
-				send_to_system(args);
+		        /* Check if the last arg is "&". If it is, flag not to wait for child processes */
+				if (strcmp("&", args[num_args - 1]) == 0) {
+					wait = 0;
+					/* Set the & to null so it doean't interfere with external call */
+					args[num_args - 1] = 0; 
+				} else {
+					/* No "&" means wait for child processes to finish */
+					wait = 1; 
+				}
+
+				int flag = choose_command(args, wait);
+				if (flag == -1) {
+					/* -1 is returned if quit is called. Break while loop so memory is freed */
+					break; 
+				}
 			}
 		}
+		
 	}
+
+	/* Free the input arg array */
+    free(args);
+	
 	return 0;
 }
 
-/*Reassembles the original input and gives it to system */
-void send_to_system(char** args) {
-	pid_t pid;            // process ID
-   	//int rc;               // return code
-
-   	pid = getpid();       // get our own pid
-   	printf("Process ID before fork: %d\n", (int)pid);
-
-   	switch (fork()) {
-      	case -1:
-         	syserr("fork");
-         	break;
-      	case 0:             // execution in child process
-         	pid = getpid();  // get child pid
-         	printf("Process ID in child after fork: %d\n", pid);
-         	execvp(args[0], args);
-         	syserr("execl"); // error if return from exec
-   	}
-
-// continued execution in parent process
-
-   pid = getpid();        // reget our pid
-   printf("Process ID in parent after fork: %d\n", pid);
-}
-
-void syserr(char * msg)   // report error code and abort
-{
-   fprintf(stderr,"%s: %s", strerror(errno), msg);
-   abort();
-}
 
